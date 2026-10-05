@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/writers-birthday-calendar-wjwatb]
   schedule:
     - cron: '5 0 * * *' # ежедневно: обновляет RSS («сегодня», «автор дня»)
   workflow_dispatch:
