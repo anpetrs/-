@@ -2,6 +2,7 @@ import { parseDate, resolveAnchor, allMonthDays, isLeap } from './dates.mjs';
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 const KINDS = new Set(['poem', 'prose']);
+const SEARCH_HOSTS = /(^|\.)(google|yandex|bing|duckduckgo|ya)\.[a-z]+$/i;
 
 function isHttpUrl(s) {
   try {
@@ -40,6 +41,8 @@ export function validateWriters(writers) {
       if (!t.title?.trim() || !t.text?.trim()) err(`texts[${j}]: нужны title и text`);
       if (!KINDS.has(t.kind)) err(`texts[${j}]: kind должен быть "poem" или "prose"`);
       if (t.url && !isHttpUrl(t.url)) err(`texts[${j}]: url должен быть ссылкой http(s)`);
+      if (t.url && SEARCH_HOSTS.test(new URL(t.url).hostname)) err(`texts[${j}]: url — страница поиска; нужна ссылка на сам текст или магазин`);
+      if (t.kind === 'prose' && !t.url) err(`texts[${j}]: у прозы нужна ссылка url на сайт с текстом или магазин`);
     });
   });
   return errors;

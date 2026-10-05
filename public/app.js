@@ -104,24 +104,24 @@ function dayTitle(month, day, year) {
 }
 
 /* ---------- Компоненты ---------- */
-/** Первые строфы (не больше `maxLines` строк) — для карточки дня; полный текст — на странице автора. */
-function excerpt(text, maxLines) {
-  const stanzas = text.split(/\n\s*\n/);
-  const kept = [];
-  let n = 0;
-  for (const st of stanzas) {
-    n += st.split('\n').length;
-    if (kept.length && n > maxLines) return kept.join('\n\n') + '\n…';
-    kept.push(st);
-  }
-  return text;
+/** Начало прозы (до `max` знаков, по границе абзаца или предложения). */
+function excerpt(text, max = 900) {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const at = Math.max(cut.lastIndexOf('\n\n'), cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+  return (at > max * 0.5 ? cut.slice(0, at + 1) : cut.replace(/\s+\S*$/, '')).trim() + ' …';
 }
 
-function quote(text, { short = false } = {}) {
+/** Стихи показываем целиком, у прозы — начало и ссылка на сайт с текстом или магазин. */
+function quote(text) {
   if (!text) return null;
+  const prose = text.kind === 'prose';
+  const link = safeUrl(text.url)
+    ? [' · ', ext(text.url, prose ? `читать полностью: ${new URL(text.url).hostname.replace(/^www\./, '')} →` : 'источник')]
+    : null;
   return el('blockquote', { class: 'quote' },
-    short ? excerpt(text.text, 8) : text.text,
-    el('cite', {}, `${text.title}${text.year ? `, ${text.year}` : ''}`, text.url ? [' · ', ext(text.url, 'читать полностью →')] : null),
+    prose ? excerpt(text.text) : text.text,
+    el('cite', {}, `${text.title}${text.year ? `, ${text.year}` : ''}`, link),
   );
 }
 
@@ -138,7 +138,7 @@ function writerCard(w, year, text, extra) {
         [lifespan(w), extra?.aod ? '' : info.note].filter(Boolean).join(' · '),
       ),
       extra?.aod || !w.bio ? null : el('p', {}, w.bio),
-      quote(text, { short: true }),
+      quote(text),
       el('div', { class: 'links' },
         el('a', { href: `#/w/${w.id}` }, 'Карточка автора'),
         ext(w.wiki, 'Википедия'),

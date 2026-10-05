@@ -53,6 +53,11 @@ test('validateWriters ловит типичные ошибки', () => {
   assert.ok(validateWriters([{ ...ok, born: '31.12.1900' }]).length);
   assert.ok(validateWriters([{ ...ok, texts: [{ ...ok.texts[0], url: 'javascript:alert(1)' }] }]).length);
   assert.ok(validateWriters([{ ...ok, photo: '//evil.example/x.jpg' }]).length);
+  // проза — только со ссылкой на текст/магазин, но не на поисковик
+  const prose = { title: 'p', kind: 'prose', text: 'x' };
+  assert.ok(validateWriters([{ ...ok, texts: [prose] }]).length);
+  assert.ok(validateWriters([{ ...ok, texts: [{ ...prose, url: 'https://www.google.com/search?q=x' }] }]).length);
+  assert.deepEqual(validateWriters([{ ...ok, texts: [{ ...prose, url: 'https://example.com/book' }] }]), []);
 });
 
 test('автор дня: детерминирован, покрывает 366 дней, пусто без текстов', () => {

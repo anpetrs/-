@@ -235,7 +235,9 @@ function parsePoem(text) {
   // подпись «🖋 Автор, год» — всё после неё (ссылки на картинки, примечания) в текст не берём
   let signature = null;
   const si = lines.findIndex((l) => SIGN_RE.test(l));
-  if (si >= 0) {
+  const ii = lines.findIndex((l) => /^\s*[\u{1F5BC}\u{1F4F7}\u{1F3A8}\u{1F338}]/u.test(l)); // 🖼 📷 🎨 🌸 — подписи к картинкам
+  if (ii >= 0 && (si < 0 || ii < si)) lines = lines.slice(0, ii);
+  else if (si >= 0) {
     signature = SIGN_RE.exec(lines[si])[1].trim();
     lines = lines.slice(0, si);
     const y = /(\d{4})\s*(?:г\.?|года?)?\s*$/.exec(signature);
@@ -253,13 +255,7 @@ function parsePoem(text) {
   const isTitle = !bare && lines.length > 1 && lines[1].trim() === '' && first.length <= 60 && !/[,;]$/.test(first);
   const title = isTitle ? first.replace(/[.\s]+$/, '') : `${first.replace(/[,;:.\s]+$/, '')}…`;
   const stanzas = trim(isTitle ? lines.slice(1) : lines).join('\n').trim().split(/\n\s*\n/);
-  const kept = [];
-  let n = 0;
-  for (const st of stanzas) {
-    n += st.split('\n').length;
-    if (kept.length && n > 20) { kept.push('…'); break; }
-    kept.push(st);
-  }
+  const kept = stanzas; // стихотворение целиком
   return { title, kind: 'poem', year, text: kept.join('\n\n'), url: '', signature };
 }
 
