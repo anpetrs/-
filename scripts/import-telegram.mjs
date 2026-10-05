@@ -307,6 +307,7 @@ for (const w of byWriter.values()) {
   if (!bornYear) notes.push('год рождения неизвестен');
   // дата сверена по личному календарю или задана вручную — проверять не нужно
   if (manual.born || (overrides.confirmedByCalendar ?? []).includes(w.name)) notes.length = 0;
+  if (manual.review) notes.push(manual.review);
 
   const born = manual.born ?? (c.year ? `${c.year}-${md}` : `--${md}`);
   const died = manual.died ?? (diedYear ? String(diedYear) : null);
