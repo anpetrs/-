@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Календарь писательниц</title>
+  <meta name="description" content="Дни рождения русских писательниц и поэтесс: фото, справка, текст и ссылка на полную версию.">
+  <link rel="alternate" type="application/rss+xml" title="Календарь писательниц" href="feed.xml">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%96%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#app">К содержимому</a>
+  <header class="top">
+    <a class="brand" href="#/" id="brand">Календарь писательниц</a>
+    <nav aria-label="Разделы" id="nav">
+      <a href="#/" data-route="calendar">Календарь</a>
+      <a href="#/year" data-route="year">Год</a>
+      <a href="#/subscribe" data-route="subscribe">Подписка</a>
+    </nav>
+  </header>
+  <main id="app" tabindex="-1"><p class="muted pad">Загрузка…</p></main>
+  <footer class="foot">
+    <span id="foot-tg"></span>
+    <a href="feed.xml">RSS</a> · <a href="calendar.ics">ICS</a>
+  </footer>
+  <noscript><p class="pad">Для работы календаря нужен JavaScript. Подписаться без него можно по ссылке <a href="calendar.ics">calendar.ics</a>.</p></noscript>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
