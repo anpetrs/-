@@ -39,12 +39,31 @@ function initials(name) {
   const p = name.trim().split(/\s+/);
   return (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
 }
-function avatar(w, cls) {
+const photoCache = new Map();
+/** Миниатюра из Википедии (REST API отдаёт CORS-заголовки); нет статьи или фото — null. */
+function wikiPhoto(w) {
+  if (!photoCache.has(w.id)) {
+    const title = encodeURIComponent(w.wikiTitle.replace(/ /g, '_'));
+    photoCache.set(w.id, fetch(`https://ru.wikipedia.org/api/rest_v1/page/summary/${title}?redirect=true`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => (j && j.type === 'standard' ? j.thumbnail?.source ?? null : null))
+      .catch(() => null));
+  }
+  return photoCache.get(w.id);
+}
+
+function avatar(w, cls, onPhoto) {
   const fallback = () => el('span', { class: cls, 'aria-hidden': 'true' }, initials(w.name));
-  if (!w.photo) return fallback();
-  const img = el('img', { class: cls, src: w.photo, alt: '', loading: 'lazy' });
-  img.addEventListener('error', () => img.replaceWith(fallback()));
-  return img;
+  const show = (node, src, fromWiki) => {
+    const img = el('img', { class: cls, src, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' });
+    img.addEventListener('error', () => img.replaceWith(fallback()));
+    img.addEventListener('load', () => fromWiki && onPhoto?.());
+    node.replaceWith(img);
+  };
+  const node = fallback();
+  if (w.photo) { show(node, w.photo, false); return node; }
+  wikiPhoto(w).then((src) => src && show(node, src, true));
+  return node;
 }
 
 /* ---------- Данные ---------- */
@@ -122,7 +141,7 @@ function writerCard(w, year, text, extra) {
       quote(text, { short: true }),
       el('div', { class: 'links' },
         el('a', { href: `#/w/${w.id}` }, 'Карточка автора'),
-        w.telegram ? ext(w.telegram, 'Пост в Telegram') : null,
+        ext(w.wiki, 'Википедия'),
         extra?.aod ? el('button', { class: 'linkbtn', type: 'button', onclick: () => render() }, 'Другой текст ↻') : null,
       ),
     ),
@@ -256,16 +275,17 @@ function writerView(id) {
   document.title = `${w.name} — ${data.config.title}`;
   const info = kindInfo(w, TODAY.year);
   const [m, d] = w.anchor.md.split('-').map(Number);
+  const credit = el('p', { class: 'meta', hidden: true }, 'Фото: ', ext(w.wiki, 'Википедия'), ' (автор и лицензия — на странице файла)');
   return el('article', {},
     el('a', { href: `#/d/${w.anchor.md}` }, `← ${d} ${MONTHS_GEN[m - 1]}`),
     el('div', { class: 'writer' },
-      avatar(w, 'pic'),
+      el('div', {}, avatar(w, 'pic', () => credit.removeAttribute('hidden')), credit),
       el('div', {},
         el('h1', {}, w.name),
         el('div', { class: 'meta' }, [w.realName ? `наст. имя: ${w.realName}` : '', lifespan(w)].filter(Boolean).join(' · ')),
         el('p', {}, el('span', { class: `badge${info.sub ? ' sub' : ''}` }, info.label), `${d} ${MONTHS_GEN[m - 1]} · ${info.note}`),
         w.bio ? el('p', {}, w.bio) : null,
-        w.telegram ? el('p', {}, ext(w.telegram, 'Пост в Telegram-канале →')) : null,
+        el('p', {}, ext(w.wiki, 'Читать о ней в Википедии →')),
         w.texts.length ? el('h2', {}, w.texts.length > 1 ? 'Тексты' : 'Текст') : null,
         w.texts.map((t) => quote(t)),
       ),

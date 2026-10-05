@@ -21,8 +21,17 @@ if (errors.length) {
 let siteUrl = process.env.SITE_URL || config.siteUrl;
 if (!siteUrl.endsWith('/')) siteUrl += '/';
 
-const channel = (config.telegram || '').replace(/\/$/, '');
-const writers = withAnchors(raw).map(({ dateReview, ...w }) => (!w.telegram && w.tgPost && channel ? { ...w, telegram: `${channel}/${w.tgPost}` } : w));
+// Ссылка «где почитать про неё»: явный `wiki` из данных, иначе поиск Википедии с переходом на статью.
+const plainName = (w) => w.name.replace(/\s*\(.*?\)/g, '').trim();
+const wikiUrl = (w) => `https://ru.wikipedia.org/w/index.php?title=Special:Search&go=Go&search=${encodeURIComponent(plainName(w))}`;
+// Полный текст: явный `url`, иначе поиск по названию (первой строке) и автору.
+const textUrl = (w, t) => `https://www.google.com/search?q=${encodeURIComponent(`«${t.title.replace(/…$/, '')}» ${plainName(w)}`)}`;
+const writers = withAnchors(raw).map(({ dateReview, tgPost, telegram, ...w }) => ({
+  ...w,
+  wiki: w.wiki || wikiUrl(w),
+  wikiTitle: plainName(w),
+  texts: w.texts.map(({ tgPost: _drop, ...t }) => ({ ...t, url: t.url || textUrl(w, t) })),
+}));
 const toReview = raw.filter((w) => w.dateReview).length;
 const byDay = groupByDay(writers);
 const authorOfDay = pickAuthorsOfDay(writers);

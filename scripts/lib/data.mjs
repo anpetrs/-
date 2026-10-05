@@ -32,6 +32,7 @@ export function validateWriters(writers) {
       }
     }
     if (w.telegram && !isHttpUrl(w.telegram)) err('telegram: нужна ссылка http(s)');
+    if (w.wiki && !isHttpUrl(w.wiki)) err('wiki: нужна ссылка http(s)');
     if (w.photo && (/^[a-z]+:/i.test(w.photo) || w.photo.startsWith('/') || w.photo.includes('..'))) {
       err('photo: путь должен быть относительным, например photos/akhmatova.jpg');
     }

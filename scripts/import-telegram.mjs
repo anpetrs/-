@@ -227,9 +227,20 @@ function looksLikePoem(text) {
   return long <= 1 && avg < 48;
 }
 
+const SIGN_RE = /^\s*[\u{1F58B}\u{1F58A}\u{1F58C}\u2712]\s*(.+)$/u;
+
 function parsePoem(text) {
   let lines = text.split('\n');
   let year = null;
+  // подпись «🖋 Автор, год» — всё после неё (ссылки на картинки, примечания) в текст не берём
+  let signature = null;
+  const si = lines.findIndex((l) => SIGN_RE.test(l));
+  if (si >= 0) {
+    signature = SIGN_RE.exec(lines[si])[1].trim();
+    lines = lines.slice(0, si);
+    const y = /(\d{4})\s*(?:г\.?|года?)?\s*$/.exec(signature);
+    if (y) year = Number(y[1]);
+  }
   const label = /^\s*(?:\d{1,2}\s+[а-я]+\s+)?(\d{4})(?:\s*(?:г\.|года))?\s*$/.exec(lines[0]);
   if (label) { year = Number(label[1]); lines = lines.slice(1); }
   const trim = (ls) => { while (ls.length && !ls[0].trim()) ls = ls.slice(1); return ls; };
@@ -249,7 +260,7 @@ function parsePoem(text) {
     if (kept.length && n > 20) { kept.push('…'); break; }
     kept.push(st);
   }
-  return { title, kind: 'poem', year, text: kept.join('\n\n'), url: '' };
+  return { title, kind: 'poem', year, text: kept.join('\n\n'), url: '', signature };
 }
 
 /* ---------- транслитерация id ---------- */
@@ -279,7 +290,7 @@ messages.forEach((msg, i) => {
 });
 
 const writers = [];
-const report = { styleAssumed: [], conflicts: [], noTexts: [], noYear: [] };
+const report = { styleAssumed: [], conflicts: [], noTexts: [], noYear: [], foreignText: [] };
 
 for (const w of byWriter.values()) {
   const posts = w.posts.sort((a, b) => a.id - b.id);
@@ -326,11 +337,20 @@ for (const w of byWriter.values()) {
       const m = messages[j];
       if (!sameDay(m.posted, p.msg.posted) || parseBirthPost(m)) break;
       if (m.text && looksLikePoem(m.text) && !/видео|запис[ьи]|читает|ссылк|подборк|нашли|посмотр|слушайте|^Памяти/i.test(m.text.slice(0, 250))) {
-        const poem = parsePoem(m.text);
+        const fix = (overrides.textFixes ?? {})[m.id] ?? {};
+        if (fix.drop) continue;
+        const { signature, ...parsed } = parsePoem(m.text);
+        const poem = { ...parsed, ...fix };
+        const surname = w.name.replace(/\s*\(.*?\)/g, '').trim().split(/\s+/).pop().toLowerCase().replace(/ё/g, 'е');
+        if (signature && !signature.toLowerCase().replace(/ё/g, 'е').includes(surname.slice(0, 5))) {
+          report.foreignText.push(`${w.name}: пост #${m.id} подписан «${signature}» — текст пропущен`);
+          continue;
+        }
         if (!seen.has(poem.title) && poem.text.length > 30) { seen.add(poem.title); texts.push({ ...poem, tgPost: m.id }); }
       }
     }
   }
+  for (const t of overrides.extraTexts?.[w.name] ?? []) texts.push({ kind: 'poem', year: null, url: '', ...t });
   if (!texts.length) report.noTexts.push(w.name);
 
   const entry = {
@@ -360,7 +380,7 @@ for (const w of byWriter.values()) {
 
 // авторки, найденные только по дню памяти / вручную
 for (const [name, m] of Object.entries(overrides.extraWriters ?? {})) {
-  writers.push({ id: m.id ?? slug(name), name, ...m.realName ? { realName: m.realName } : {}, born: m.born ?? null, died: m.died ?? null, ...(m.firstPublished ? { firstPublished: m.firstPublished } : {}), photo: '', bio: m.bio ?? '', ...(m.tgPost ? { tgPost: m.tgPost } : {}), texts: [], ...(m.dateReview ? { dateReview: m.dateReview } : {}) });
+  writers.push({ id: m.id ?? slug(name), name, ...m.realName ? { realName: m.realName } : {}, born: m.born ?? null, died: m.died ?? null, ...(m.firstPublished ? { firstPublished: m.firstPublished } : {}), photo: '', bio: m.bio ?? '', ...(m.tgPost ? { tgPost: m.tgPost } : {}), texts: m.texts ?? [], ...(m.dateReview ? { dateReview: m.dateReview } : {}) });
 }
 
 writers.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
@@ -386,6 +406,10 @@ const lines = [
   `## Посты с «родилась» и датой, которые не удалось разобрать (${unparsed.length})`,
   '',
   ...unparsed.map((m) => `- #${m.id} (${m.posted.day}.${pad(m.posted.month)}.${m.posted.year}): ${m.text.slice(0, 140).replace(/\n/g, ' ')}`),
+  '',
+  `## Тексты, пропущенные из-за чужой подписи (${report.foreignText.length})`,
+  '',
+  ...report.foreignText.map((x) => `- ${x}`),
   '',
   `## Без найденных стихов (${report.noTexts.length})`,
   '',
