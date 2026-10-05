@@ -41,7 +41,6 @@ writeFileSync(
     config: { title: config.title, description: config.description, telegram: config.telegram, timezone: config.timezone },
     writers,
     byDay,
-    authorOfDay,
   }),
 );
 writeFileSync(join(dist, 'calendar.ics'), buildIcs(writers, { title: config.title, description: config.description, siteUrl, now }));

@@ -123,9 +123,16 @@ function writerCard(w, year, text, extra) {
       el('div', { class: 'links' },
         el('a', { href: `#/w/${w.id}` }, 'Карточка автора'),
         w.telegram ? ext(w.telegram, 'Пост в Telegram') : null,
+        extra?.aod ? el('button', { class: 'linkbtn', type: 'button', onclick: () => render() }, 'Другой текст ↻') : null,
       ),
     ),
   );
+}
+
+/** «Автор дня»: случайный текст случайной писательницы; при каждом показе — новый. */
+function randomText() {
+  const pool = data.writers.flatMap((writer) => writer.texts.map((text) => ({ writer, text })));
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
 }
 
 function dayPanel(month, day, year) {
@@ -133,11 +140,8 @@ function dayPanel(month, day, year) {
   const writers = ids.map((id) => byId.get(id));
   const cards = writers.map((w) => writerCard(w, year, w.texts[0]));
   const hasBirthday = writers.some((w) => w.anchor.kind === 'birth');
-  const pick = data.authorOfDay[`${pad(month)}-${pad(day)}`];
-  if (!hasBirthday && pick) {
-    const w = byId.get(pick.writerId);
-    cards.push(writerCard(w, year, w.texts[pick.textIndex], { aod: true }));
-  }
+  const pick = hasBirthday ? null : randomText();
+  if (pick) cards.push(writerCard(pick.writer, year, pick.text, { aod: true }));
   const isToday = year === TODAY.year && month === TODAY.month && day === TODAY.day;
   return el('section', { class: 'panel', 'aria-live': 'polite' },
     el('h2', {}, (isToday ? 'Сегодня · ' : '') + dayTitle(month, day, year)),

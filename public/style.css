@@ -113,3 +113,5 @@ a.day { color: inherit; text-decoration: none; }
 .copyrow { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
 .copyrow input { flex: 1; min-width: 200px; font: .85rem var(--sans); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
 .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
