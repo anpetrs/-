@@ -112,15 +112,15 @@ function excerpt(text, max = 900) {
   return (at > max * 0.5 ? cut.slice(0, at + 1) : cut.replace(/\s+\S*$/, '')).trim() + ' …';
 }
 
-/** Стихи показываем целиком, у прозы — начало и ссылка на сайт с текстом или магазин. */
+/** Стихи (не охраняемые) показываем целиком; у прозы и охраняемых стихов — начало и ссылка на текст или магазин. */
 function quote(text) {
   if (!text) return null;
-  const prose = text.kind === 'prose';
+  const prose = text.kind === 'prose' || text.partial;
   const link = safeUrl(text.url)
     ? [' · ', ext(text.url, prose ? `читать полностью: ${new URL(text.url).hostname.replace(/^www\./, '')} →` : 'источник')]
     : null;
   return el('blockquote', { class: 'quote' },
-    prose ? excerpt(text.text) : text.text,
+    text.kind === 'prose' ? excerpt(text.text) : text.text,
     el('cite', {}, `${text.title}${text.year ? `, ${text.year}` : ''}`, link),
   );
 }

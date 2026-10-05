@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseDate, resolveAnchor, allMonthDays, julianToGregorian, gregorianToJulian, isOldStyle } from '../scripts/lib/dates.mjs';
-import { validateWriters, withAnchors, groupByDay, pickAuthorsOfDay, idsOnDate } from '../scripts/lib/data.mjs';
+import { validateWriters, withAnchors, groupByDay, pickAuthorsOfDay, idsOnDate, isProtected, excerptPoem } from '../scripts/lib/data.mjs';
 import { buildIcs, fold, escapeText } from '../scripts/lib/ics.mjs';
 import { buildRss } from '../scripts/lib/rss.mjs';
 
@@ -120,4 +120,19 @@ test('RSS: именинницы, автор дня на пустых днях, �
   assert.equal((xml.match(/<item>/g) || []).length, 3); // 1 именинница + 2 «автора дня» за предыдущие дни
   assert.ok(xml.includes('Автор дня: Анна'));
   assert.ok(xml.includes('<guid isPermaLink="false">2026-06-23-a</guid>'));
+});
+
+test('охрана авторских прав: жизнь + 70 лет', () => {
+  assert.equal(isProtected({ born: '1892-09-26', died: '1941' }), false); // Цветаева
+  assert.equal(isProtected({ born: '1889', died: '1966' }), true); // Ахматова
+  assert.equal(isProtected({ born: '1773', died: null }), false); // дата смерти неизвестна, давно
+  assert.equal(isProtected({ born: '1987-06-30', died: null }), true); // жива
+  assert.equal(isProtected({ born: '--05-02', died: null }), true);
+});
+
+test('excerptPoem: первая строфа, у коротких стихов не больше половины', () => {
+  const long = 'а1\nа2\nа3\nа4\n\nб1\nб2\nб3\nб4\n\nв1\nв2';
+  assert.equal(excerptPoem(long), 'а1\nа2\nа3\nа4\n…');
+  assert.equal(excerptPoem('1\n2\n3\n4'), '1\n2\n…');
+  assert.equal(excerptPoem('одна строка'), 'одна строка');
 });

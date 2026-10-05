@@ -99,3 +99,26 @@ export function idsOnDate(byDay, { year, month, day }) {
   if (md === '02-28' && !isLeap(year)) ids.push(...(byDay['02-29'] ?? []));
   return ids;
 }
+
+/** Срок охраны: жизнь + 70 лет. Умерла не позднее 1955 года — общественное достояние. Дата смерти неизвестна и родилась до 1900 — тоже. */
+export function isProtected(w) {
+  const died = /^\d{4}/.test(w.died ?? '') ? Number(String(w.died).slice(0, 4)) : null;
+  if (died) return died > 1955;
+  const born = /^\d{4}/.test(w.born ?? '') ? Number(String(w.born).slice(0, 4)) : null;
+  return born == null || born >= 1900;
+}
+
+/** Для охраняемых текстов — только начало: первая строфа (до 6 строк), у коротких стихов не больше половины. */
+export function excerptPoem(text) {
+  const lines = text.split('\n');
+  const max = lines.length <= 8 ? Math.ceil(lines.length / 2) : 6;
+  const out = [];
+  for (const st of text.split(/\n\s*\n/)) {
+    const sl = st.split('\n');
+    if (out.length && out.length + 1 + sl.length > max) break;
+    out.push(...(out.length ? ['', ...sl] : sl));
+    if (out.length >= max) break;
+  }
+  const part = out.slice(0, max);
+  return part.length < lines.length ? part.join('\n').trimEnd() + '\n…' : text;
+}

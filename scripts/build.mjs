@@ -1,7 +1,7 @@
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { groupByDay, pickAuthorsOfDay, validateWriters, withAnchors } from './lib/data.mjs';
+import { excerptPoem, groupByDay, isProtected, pickAuthorsOfDay, validateWriters, withAnchors } from './lib/data.mjs';
 import { todayIn } from './lib/dates.mjs';
 import { buildIcs } from './lib/ics.mjs';
 import { buildRss } from './lib/rss.mjs';
@@ -28,8 +28,15 @@ const writers = withAnchors(raw).map(({ dateReview, tgPost, telegram, ...w }) =>
   ...w,
   wiki: w.wiki || wikiUrl(w),
   wikiTitle: plainName(w),
-  texts: w.texts.map(({ tgPost: _drop, ...t }) => t),
+  // охраняемые тексты (автор умерла после 1955 года или жива) — только начало и ссылка на полный текст
+  texts: w.texts.map(({ tgPost: _drop, ...t }) =>
+    t.kind === 'poem' && isProtected(w) ? { ...t, text: excerptPoem(t.text), partial: true } : t),
 }));
+const noLink = writers.flatMap((w) => w.texts.filter((t) => t.partial && !t.url).map((t) => `${w.name}: «${t.title}»`));
+if (noLink.length) {
+  console.error('Для охраняемых текстов нужна ссылка url на полный текст:\n - ' + noLink.join('\n - '));
+  process.exit(1);
+}
 const toReview = raw.filter((w) => w.dateReview).length;
 const byDay = groupByDay(writers);
 const authorOfDay = pickAuthorsOfDay(writers);
