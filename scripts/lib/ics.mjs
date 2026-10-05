@@ -51,6 +51,10 @@ function description(w, siteUrl) {
   if (w.anchor.kind === 'death') lines.push('Дата рождения неизвестна — событие привязано к дню памяти.');
   if (w.anchor.kind === 'publication') lines.push('Даты рождения и смерти неизвестны — событие привязано к дате первой публикации.');
   if (w.anchor.kind === 'march8') lines.push('Точных дат нет — писательница отмечена 8 марта.');
+  if (w.anchor.newStyle) {
+    const [m, d] = w.anchor.newStyle.md.split('-').map(Number);
+    lines.push(`Дата по старому стилю; по новому стилю — ${d}.${String(m).padStart(2, '0')}.${w.anchor.newStyle.year}.`);
+  }
   if (w.bio) lines.push(w.bio);
   lines.push(`${siteUrl}#/w/${w.id}`);
   return lines.join('\n\n');

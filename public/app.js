@@ -67,12 +67,14 @@ function idsOn(year, month, day) {
 }
 
 function kindInfo(w, year) {
-  const { kind, year: y } = w.anchor;
+  const { kind, year: y, newStyle } = w.anchor;
   const n = y ? year - y : null;
+  const ns = newStyle ? `по новому стилю — ${Number(newStyle.md.slice(3))} ${MONTHS_GEN[Number(newStyle.md.slice(0, 2)) - 1]}` : '';
+  const join = (...a) => a.filter(Boolean).join(' · ');
   switch (kind) {
-    case 'birth': return { label: 'День рождения', sub: false, note: n > 0 ? `${years(n)} со дня рождения` : '' };
-    case 'death': return { label: 'День памяти', sub: true, note: `Дата рождения неизвестна${n > 0 ? ` · ${years(n)} со дня смерти` : ''}` };
-    case 'publication': return { label: 'Первая публикация', sub: true, note: `Даты рождения и смерти неизвестны${n > 0 ? ` · ${years(n)} назад` : ''}` };
+    case 'birth': return { label: 'День рождения', sub: false, note: join(ns, n > 0 && `${years(n)} со дня рождения`) };
+    case 'death': return { label: 'День памяти', sub: true, note: join('Дата рождения неизвестна', ns, n > 0 && `${years(n)} со дня смерти`) };
+    case 'publication': return { label: 'Первая публикация', sub: true, note: join('Даты рождения и смерти неизвестны', ns, n > 0 && `${years(n)} назад`) };
     default: return { label: '8 Марта', sub: true, note: 'Точных дат нет — писательница отмечена в Международный женский день' };
   }
 }
@@ -83,11 +85,24 @@ function dayTitle(month, day, year) {
 }
 
 /* ---------- Компоненты ---------- */
-function quote(text, { full = true } = {}) {
+/** Первые строфы (не больше `maxLines` строк) — для карточки дня; полный текст — на странице автора. */
+function excerpt(text, maxLines) {
+  const stanzas = text.split(/\n\s*\n/);
+  const kept = [];
+  let n = 0;
+  for (const st of stanzas) {
+    n += st.split('\n').length;
+    if (kept.length && n > maxLines) return kept.join('\n\n') + '\n…';
+    kept.push(st);
+  }
+  return text;
+}
+
+function quote(text, { short = false } = {}) {
   if (!text) return null;
   return el('blockquote', { class: 'quote' },
-    text.text,
-    el('cite', {}, `${text.title}${text.year ? `, ${text.year}` : ''}`, text.url && full ? [' · ', ext(text.url, 'читать полностью →')] : null),
+    short ? excerpt(text.text, 8) : text.text,
+    el('cite', {}, `${text.title}${text.year ? `, ${text.year}` : ''}`, text.url ? [' · ', ext(text.url, 'читать полностью →')] : null),
   );
 }
 
@@ -103,8 +118,8 @@ function writerCard(w, year, text, extra) {
           : el('span', { class: `badge${info.sub ? ' sub' : ''}` }, info.label),
         [lifespan(w), extra?.aod ? '' : info.note].filter(Boolean).join(' · '),
       ),
-      extra?.aod ? null : el('p', {}, w.bio),
-      quote(text),
+      extra?.aod || !w.bio ? null : el('p', {}, w.bio),
+      quote(text, { short: true }),
       el('div', { class: 'links' },
         el('a', { href: `#/w/${w.id}` }, 'Карточка автора'),
         w.telegram ? ext(w.telegram, 'Пост в Telegram') : null,
@@ -131,6 +146,8 @@ function dayPanel(month, day, year) {
 }
 
 /* ---------- Календарь ---------- */
+const hasSub = (month) => Object.entries(data.byDay).some(([md, ids]) => Number(md.slice(0, 2)) === month && ids.some((id) => byId.get(id).anchor.kind !== 'birth'));
+
 function calendarView(month, day) {
   const year = TODAY.year;
   const prev = month === 1 ? 12 : month - 1;
@@ -161,7 +178,7 @@ function calendarView(month, day) {
     ),
     grid,
     day ? dayPanel(month, day, year) : el('section', { class: 'panel' }, el('h2', {}, `${MONTHS[month - 1]}: кто и когда`), monthList(month)),
-    el('p', { class: 'muted meta' }, 'Пунктирная рамка — писательница без известной даты рождения: она отмечена в день памяти, первой публикации или 8 Марта.'),
+    hasSub(month) && el('p', { class: 'muted meta' }, 'Пунктирная рамка — писательница без известной даты рождения: она отмечена в день памяти, первой публикации или 8 Марта.'),
   );
 }
 
@@ -241,9 +258,9 @@ function writerView(id) {
       avatar(w, 'pic'),
       el('div', {},
         el('h1', {}, w.name),
-        el('div', { class: 'meta' }, [w.realName ? `урождённая/наст. имя: ${w.realName}` : '', lifespan(w), w.bornNote ? `(${w.bornNote})` : ''].filter(Boolean).join(' · ')),
+        el('div', { class: 'meta' }, [w.realName ? `наст. имя: ${w.realName}` : '', lifespan(w)].filter(Boolean).join(' · ')),
         el('p', {}, el('span', { class: `badge${info.sub ? ' sub' : ''}` }, info.label), `${d} ${MONTHS_GEN[m - 1]} · ${info.note}`),
-        el('p', {}, w.bio),
+        w.bio ? el('p', {}, w.bio) : null,
         w.telegram ? el('p', {}, ext(w.telegram, 'Пост в Telegram-канале →')) : null,
         w.texts.length ? el('h2', {}, w.texts.length > 1 ? 'Тексты' : 'Текст') : null,
         w.texts.map((t) => quote(t)),

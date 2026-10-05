@@ -33,8 +33,56 @@ function isValidMonthDay(month, day) {
 }
 
 function isValidFullDate(year, month, day) {
-  return day <= daysInMonth(month, year);
+  // до реформы 1918 года даты записаны по юлианскому календарю
+  const leap = isOldStyleYear(year) ? year % 4 === 0 : isLeap(year);
+  return day <= daysInMonth(month, leap ? 2000 : 2001);
 }
+
+/** Даты до 1 февраля 1918 (ст. ст.) записываются по старому стилю; год без дня считаем по году. */
+export const isOldStyleYear = (year) => year != null && year < 1918;
+
+export function isOldStyle(year, md) {
+  return year != null && (year < 1918 || (year === 1918 && md?.startsWith('01-')));
+}
+
+// Юлианский ↔ григорианский календарь через номер юлианского дня (JDN).
+function jdnFromJulian(y, m, d) {
+  const a = Math.floor((14 - m) / 12);
+  const yy = y + 4800 - a;
+  const mm = m + 12 * a - 3;
+  return d + Math.floor((153 * mm + 2) / 5) + 365 * yy + Math.floor(yy / 4) - 32083;
+}
+
+function gregorianFromJdn(jdn) {
+  const a = jdn + 32044;
+  const b = Math.floor((4 * a + 3) / 146097);
+  const c = a - Math.floor((146097 * b) / 4);
+  const d = Math.floor((4 * c + 3) / 1461);
+  const e = c - Math.floor((1461 * d) / 4);
+  const m = Math.floor((5 * e + 2) / 153);
+  return { day: e - Math.floor((153 * m + 2) / 5) + 1, month: m + 3 - 12 * Math.floor(m / 10), year: 100 * b + d - 4800 + Math.floor(m / 10) };
+}
+
+function julianFromJdn(jdn) {
+  const c = jdn + 32082;
+  const d = Math.floor((4 * c + 3) / 1461);
+  const e = c - Math.floor((1461 * d) / 4);
+  const m = Math.floor((5 * e + 2) / 153);
+  return { day: e - Math.floor((153 * m + 2) / 5) + 1, month: m + 3 - 12 * Math.floor(m / 10), year: d - 4800 + Math.floor(m / 10) };
+}
+
+function jdnFromGregorian(y, m, d) {
+  const a = Math.floor((14 - m) / 12);
+  const yy = y + 4800 - a;
+  const mm = m + 12 * a - 3;
+  return d + Math.floor((153 * mm + 2) / 5) + 365 * yy + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 32045;
+}
+
+/** {year, month, day} по старому стилю → по новому. */
+export const julianToGregorian = ({ year, month, day }) => gregorianFromJdn(jdnFromJulian(year, month, day));
+
+/** {year, month, day} по новому стилю → по старому. */
+export const gregorianToJulian = ({ year, month, day }) => julianFromJdn(jdnFromGregorian(year, month, day));
 
 /**
  * Дата для календаря: рождение → смерть → первая публикация → 8 марта.
@@ -47,9 +95,19 @@ export function resolveAnchor(writer) {
     ['publication', parseDate(writer.firstPublished)],
   ];
   for (const [kind, d] of candidates) {
-    if (d?.md) return { md: d.md, kind, year: d.year };
+    if (d?.md) return withNewStyle({ md: d.md, kind, year: d.year });
   }
   return { md: FALLBACK_MD, kind: 'march8', year: null };
+}
+
+/**
+ * Для даты по старому стилю добавляет `newStyle: {year, md}` — тот же день по новому стилю.
+ * Нужен только для подписи: в календаре писательница стоит на дне по старому стилю.
+ */
+function withNewStyle(anchor) {
+  if (!anchor.year || !isOldStyle(anchor.year, anchor.md)) return anchor;
+  const g = julianToGregorian({ year: anchor.year, month: Number(anchor.md.slice(0, 2)), day: Number(anchor.md.slice(3)) });
+  return { ...anchor, newStyle: { year: g.year, md: `${pad(g.month)}-${pad(g.day)}` } };
 }
 
 /** Все "MM-DD" високосного года по порядку. */

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseDate, resolveAnchor, allMonthDays } from '../scripts/lib/dates.mjs';
+import { parseDate, resolveAnchor, allMonthDays, julianToGregorian, gregorianToJulian, isOldStyle } from '../scripts/lib/dates.mjs';
 import { validateWriters, withAnchors, groupByDay, pickAuthorsOfDay, idsOnDate } from '../scripts/lib/data.mjs';
 import { buildIcs, fold, escapeText } from '../scripts/lib/ics.mjs';
 import { buildRss } from '../scripts/lib/rss.mjs';
@@ -11,17 +11,38 @@ test('parseDate: форматы и ошибки', () => {
   assert.deepEqual(parseDate('--10-08'), { year: null, md: '10-08' });
   assert.equal(parseDate(null), null);
   assert.throws(() => parseDate('1892-02-30'));
-  assert.throws(() => parseDate('1900-02-29'));
+  assert.throws(() => parseDate('1937-02-29'));
+  assert.throws(() => parseDate('1920-02-30'));
   assert.deepEqual(parseDate('1904-02-29'), { year: 1904, md: '02-29' });
+  // 1900 — високосный год по юлианскому календарю, 1920 — по григорианскому
+  assert.deepEqual(parseDate('1900-02-29'), { year: 1900, md: '02-29' });
+  assert.throws(() => parseDate('1921-02-29'));
   assert.throws(() => parseDate('08.10.1892'));
 });
 
 test('resolveAnchor: рождение → смерть → публикация → 8 марта', () => {
-  assert.deepEqual(resolveAnchor({ born: '1889-06-23', died: '1966-03-05' }), { md: '06-23', kind: 'birth', year: 1889 });
-  assert.deepEqual(resolveAnchor({ born: '1889', died: '1966-03-05' }), { md: '03-05', kind: 'death', year: 1966 });
-  assert.deepEqual(resolveAnchor({ died: '1966', firstPublished: '1912-04-01' }), { md: '04-01', kind: 'publication', year: 1912 });
+  assert.deepEqual(resolveAnchor({ born: '1937-04-10', died: '2010-11-29' }), { md: '04-10', kind: 'birth', year: 1937 });
+  assert.deepEqual(resolveAnchor({ born: '1937', died: '2010-11-29' }), { md: '11-29', kind: 'death', year: 2010 });
+  assert.deepEqual(resolveAnchor({ died: '1966', firstPublished: '1912-04-01' }), { md: '04-01', kind: 'publication', year: 1912, newStyle: { year: 1912, md: '04-14' } });
   assert.deepEqual(resolveAnchor({ firstPublished: '1912' }), { md: '03-08', kind: 'march8', year: null });
   assert.deepEqual(resolveAnchor({}), { md: '03-08', kind: 'march8', year: null });
+});
+
+test('старый стиль: даты до 1918 года стоят в календаре по ст. ст., новый — в подписи', () => {
+  const a = resolveAnchor({ born: '1892-09-26' });
+  assert.equal(a.md, '09-26');
+  assert.deepEqual(a.newStyle, { year: 1892, md: '10-08' });
+  // разница 11 дней в XVIII веке, 12 — в XIX, 13 — в XX
+  assert.deepEqual(julianToGregorian({ year: 1783, month: 9, day: 6 }), { year: 1783, month: 9, day: 17 });
+  assert.deepEqual(julianToGregorian({ year: 1875, month: 1, day: 19 }), { year: 1875, month: 1, day: 31 });
+  assert.deepEqual(julianToGregorian({ year: 1910, month: 5, day: 3 }), { year: 1910, month: 5, day: 16 });
+  // пересчёт через границу года: 4 января 1812 (н. ст.) — это 23 декабря 1811 (ст. ст.)
+  assert.deepEqual(gregorianToJulian({ year: 1812, month: 1, day: 4 }), { year: 1811, month: 12, day: 23 });
+  // после реформы пересчёта нет
+  assert.equal(resolveAnchor({ born: '1937-04-10' }).newStyle, undefined);
+  assert.equal(isOldStyle(1918, '01-31'), true);
+  assert.equal(isOldStyle(1918, '02-14'), false);
+  assert.equal(isOldStyle(null, '02-14'), false);
 });
 
 test('validateWriters ловит типичные ошибки', () => {

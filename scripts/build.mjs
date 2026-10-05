@@ -21,7 +21,9 @@ if (errors.length) {
 let siteUrl = process.env.SITE_URL || config.siteUrl;
 if (!siteUrl.endsWith('/')) siteUrl += '/';
 
-const writers = withAnchors(raw);
+const channel = (config.telegram || '').replace(/\/$/, '');
+const writers = withAnchors(raw).map(({ dateReview, ...w }) => (!w.telegram && w.tgPost && channel ? { ...w, telegram: `${channel}/${w.tgPost}` } : w));
+const toReview = raw.filter((w) => w.dateReview).length;
 const byDay = groupByDay(writers);
 const authorOfDay = pickAuthorsOfDay(writers);
 const now = new Date();
@@ -46,3 +48,4 @@ writeFileSync(join(dist, 'calendar.ics'), buildIcs(writers, { title: config.titl
 writeFileSync(join(dist, 'feed.xml'), buildRss({ writers, byDay, authorOfDay, config, siteUrl, today, now }));
 
 console.log(`Готово: ${writers.length} писательниц → dist/ (${siteUrl})`);
+if (toReview) console.log(`Дат на проверку: ${toReview} (см. dateReview в data/writers.json и data/import-report.md)`);
