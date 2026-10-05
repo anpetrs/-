@@ -320,10 +320,9 @@ for (const w of byWriter.values()) {
   const died = manual.died ?? (diedYear ? String(diedYear) : null);
 
   // лучший пост для справки: самый содержательный, при равенстве — самый свежий
-  const best = [...posts].sort((a, b) => (extraParagraph(b.msg.text).length - extraParagraph(a.msg.text).length) || b.id - a.id)[0];
+  const best = [...posts].sort((a, b) => b.id - a.id)[0];
   const header = cap(best.header || posts.map((p) => p.header).find(Boolean) || '');
-  const extra = extraParagraph(best.msg.text);
-  const bio = manual.bio ?? [header && (/[.!?…]$/.test(header) ? header : header + '.'), extra].filter(Boolean).join(' ');
+  const bio = manual.bio ?? (header && (/[.!?…]$/.test(header) ? header : header + '.'));
 
   // стихи: сообщения сразу после поста в тот же день
   const texts = [];
